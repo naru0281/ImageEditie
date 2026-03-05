@@ -26,7 +26,7 @@ margin:0;
 font-family:sans-serif;
 background:var(--bg);
 color:var(--text);
-transition:0.3s;
+transition:0.25s;
 }
 
 header{
@@ -98,6 +98,7 @@ padding:40px;
 text-align:center;
 border-radius:10px;
 margin-bottom:20px;
+cursor:pointer;
 }
 
 .preview{
@@ -108,12 +109,14 @@ margin:auto;
 
 .preview img{
 max-width:100%;
+display:block;
 }
 
 .crop-box{
 position:absolute;
 border:2px solid red;
 cursor:move;
+display:none;
 }
 
 input{
@@ -154,6 +157,11 @@ transition:.3s;
 opacity:1;
 }
 
+.label{
+margin-top:10px;
+font-size:14px;
+}
+
 </style>
 </head>
 
@@ -161,10 +169,15 @@ opacity:1;
 <body>
 
 <header>
+
 <div class="title">ImageEditie</div>
 
-<img class="mode-btn" id="modeToggle"
-src="/image/image_dark_button.png">
+<img
+class="mode-btn"
+id="modeToggle"
+src="./image/image_dark_button.png"
+>
+
 </header>
 
 
@@ -172,8 +185,8 @@ src="/image/image_dark_button.png">
 
 <div class="segment">
 <div class="segment-slider" id="slider"></div>
-<button id="tab1">画像サイズを調整</button>
-<button id="tab2">データ容量を調整</button>
+<button id="tabResize">画像サイズを調整</button>
+<button id="tabCompress">データ容量を調整</button>
 </div>
 
 
@@ -187,11 +200,21 @@ src="/image/image_dark_button.png">
 </div>
 
 <div class="preview">
+
 <img id="previewImg">
+
 <div class="crop-box" id="cropBox"></div>
+
 </div>
 
-<div id="originalSize"></div>
+<div class="label">
+選択したファイルサイズ：
+<span id="originalSize"></span>
+</div>
+
+<div class="label">
+変更後のファイルサイズ：
+</div>
 
 <div>
 <input id="newW" placeholder="width">
@@ -218,7 +241,14 @@ src="/image/image_dark_button.png">
 <input type="file" id="fileCompress" hidden>
 </div>
 
-<div id="originalByte"></div>
+<div class="label">
+選択したファイルサイズ：
+<span id="originalByte"></span>
+</div>
+
+<div class="label">
+変更後のファイルサイズ：
+</div>
 
 <div>
 <input id="targetByte" placeholder="byte">
@@ -236,36 +266,56 @@ src="/image/image_dark_button.png">
 
 </main>
 
+
 <div class="toast" id="toast"></div>
+
 
 <script>
 
-const allowed = ["image/jpeg","image/png","image/webp","image/gif","image/bmp"]
+const allowed=[
+"image/jpeg",
+"image/png",
+"image/webp",
+"image/gif",
+"image/bmp"
+]
 
 function toast(msg){
+
 const t=document.getElementById("toast")
+
 t.textContent=msg
+
 t.classList.add("show")
-setTimeout(()=>t.classList.remove("show"),2500)
+
+setTimeout(()=>{
+t.classList.remove("show")
+},2500)
+
 }
 
 
 
 const slider=document.getElementById("slider")
 
-document.getElementById("tab1").onclick=()=>{
+document.getElementById("tabResize").onclick=()=>{
 slider.style.left="0%"
 switchPanel("resizePanel")
 }
 
-document.getElementById("tab2").onclick=()=>{
+document.getElementById("tabCompress").onclick=()=>{
 slider.style.left="50%"
 switchPanel("compressPanel")
 }
 
 function switchPanel(id){
-document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"))
+
+document.querySelectorAll(".panel").forEach(p=>{
+p.classList.remove("active")
+})
+
 document.getElementById(id).classList.add("active")
+
 }
 
 
@@ -273,13 +323,15 @@ document.getElementById(id).classList.add("active")
 const modeBtn=document.getElementById("modeToggle")
 
 modeBtn.onclick=()=>{
+
 document.body.classList.toggle("light")
 
 if(document.body.classList.contains("light")){
-modeBtn.src="/image/image_light_button.png"
+modeBtn.src="./image/image_light_button.png"
 }else{
-modeBtn.src="/image/image_dark_button.png"
+modeBtn.src="./image/image_dark_button.png"
 }
+
 }
 
 
@@ -293,13 +345,17 @@ e.preventDefault()
 }
 
 drop.ondrop=e=>{
+
 e.preventDefault()
-const f=e.dataTransfer.files
-callback(f)
+
+callback(e.dataTransfer.files)
+
 }
 
 input.onchange=e=>{
+
 callback(e.target.files)
+
 }
 
 }
@@ -307,96 +363,171 @@ callback(e.target.files)
 
 
 let imgFile
-let img
-let cropBox=document.getElementById("cropBox")
-let preview=document.getElementById("previewImg")
+
+const preview=document.getElementById("previewImg")
+
+const cropBox=document.getElementById("cropBox")
+
+
 
 setupDrop(
+
 document.getElementById("dropResize"),
+
 document.getElementById("fileResize"),
+
 files=>{
+
 if(files.length!=1){
+
 toast("ファイルは1つのみ")
+
 return
+
 }
 
 const f=files[0]
 
 if(!allowed.includes(f.type)){
+
 toast("対応していない形式")
+
 return
+
 }
 
 imgFile=f
 
-const url=URL.createObjectURL(f)
+preview.src=URL.createObjectURL(f)
 
 preview.onload=()=>{
+
 document.getElementById("originalSize").textContent=
+
 preview.naturalWidth+" px × "+preview.naturalHeight+" px"
-}
-
-preview.src=url
 
 }
+
+}
+
 )
 
 
 
 const newW=document.getElementById("newW")
+
 const newH=document.getElementById("newH")
+
+
 
 function updateCrop(){
 
 if(!preview.src)return
 
 const w=parseInt(newW.value)
+
 const h=parseInt(newH.value)
 
 if(!w||!h)return
 
+
+
 if(w>preview.naturalWidth||h>preview.naturalHeight){
 
 document.getElementById("resizeError").textContent=
+
 "変更後サイズの方が大きくする必要があります"
 
 return
+
 }
+
+
 
 document.getElementById("resizeError").textContent=""
 
+
+
 const scale=preview.width/preview.naturalWidth
 
+
+
+cropBox.style.display="block"
+
 cropBox.style.width=(w*scale)+"px"
+
 cropBox.style.height=(h*scale)+"px"
 
 cropBox.style.left=(preview.width/2-w*scale/2)+"px"
+
 cropBox.style.top=(preview.height/2-h*scale/2)+"px"
 
 }
 
+
+
 newW.onblur=updateCrop
+
 newH.onblur=updateCrop
 
 
 
 let drag=false,ox,oy
 
+
+
 cropBox.onmousedown=e=>{
+
 drag=true
+
 ox=e.offsetX
+
 oy=e.offsetY
+
 }
 
-document.onmouseup=()=>drag=false
+
+
+document.onmouseup=()=>{
+
+drag=false
+
+}
+
+
 
 document.onmousemove=e=>{
+
 if(!drag)return
+
+
 
 const rect=preview.getBoundingClientRect()
 
-cropBox.style.left=(e.clientX-rect.left-ox)+"px"
-cropBox.style.top=(e.clientY-rect.top-oy)+"px"
+
+
+let x=e.clientX-rect.left-ox
+
+let y=e.clientY-rect.top-oy
+
+
+
+const maxX=preview.width-cropBox.offsetWidth
+
+const maxY=preview.height-cropBox.offsetHeight
+
+
+
+x=Math.max(0,Math.min(maxX,x))
+
+y=Math.max(0,Math.min(maxY,y))
+
+
+
+cropBox.style.left=x+"px"
+
+cropBox.style.top=y+"px"
+
 }
 
 
@@ -405,44 +536,79 @@ document.getElementById("downloadResize").onclick=()=>{
 
 if(!imgFile)return
 
-const canvas=document.createElement("canvas")
+
 
 const w=parseInt(newW.value)
+
 const h=parseInt(newH.value)
 
-canvas.width=w
-canvas.height=h
 
-const ctx=canvas.getContext("2d")
 
 const scale=preview.width/preview.naturalWidth
 
+
+
 const sx=parseInt(cropBox.style.left)/scale
+
 const sy=parseInt(cropBox.style.top)/scale
 
-const image=new Image()
 
-image.onload=()=>{
 
-ctx.drawImage(image,sx,sy,w,h,0,0,w,h)
+const canvas=document.createElement("canvas")
+
+canvas.width=w
+
+canvas.height=h
+
+
+
+const ctx=canvas.getContext("2d")
+
+
+
+const img=new Image()
+
+
+
+img.onload=()=>{
+
+ctx.drawImage(img,sx,sy,w,h,0,0,w,h)
+
+
 
 canvas.toBlob(blob=>{
 
 const a=document.createElement("a")
+
 a.href=URL.createObjectURL(blob)
+
 a.download="image.png"
+
 a.click()
+
+
 
 toast("ダウンロード完了")
 
+
+
 preview.src=""
-cropBox.style.width="0"
+
+cropBox.style.display="none"
+
+newW.value=""
+
+newH.value=""
+
+document.getElementById("originalSize").textContent=""
 
 })
 
 }
 
-image.src=preview.src
+
+
+img.src=preview.src
 
 }
 
@@ -450,54 +616,90 @@ image.src=preview.src
 
 let compressFile
 
+
+
 setupDrop(
+
 document.getElementById("dropCompress"),
+
 document.getElementById("fileCompress"),
+
 files=>{
 
 if(files.length!=1){
+
 toast("ファイルは1つのみ")
+
 return
+
 }
+
+
 
 const f=files[0]
 
+
+
 if(!allowed.includes(f.type)){
+
 toast("対応していない形式")
+
 return
+
 }
+
+
 
 compressFile=f
 
+
+
 document.getElementById("originalByte").textContent=
+
 f.size+" byte"
 
 }
+
 )
 
 
 
+const targetByte=document.getElementById("targetByte")
+
+
+
 document.getElementById("kbBtn").onclick=()=>{
+
 targetByte.value=parseInt(targetByte.value)*1024
+
 }
+
+
 
 document.getElementById("mbBtn").onclick=()=>{
+
 targetByte.value=parseInt(targetByte.value)*1024*1024
+
 }
 
-const targetByte=document.getElementById("targetByte")
+
 
 targetByte.onblur=()=>{
 
 if(!compressFile)return
 
+
+
 if(parseInt(targetByte.value)>compressFile.size){
 
 document.getElementById("compressError").textContent=
+
 "変更後サイズの方が大きくする必要があります"
 
 }else{
+
 document.getElementById("compressError").textContent=""
+
 }
 
 }
@@ -508,40 +710,67 @@ document.getElementById("downloadCompress").onclick=()=>{
 
 if(!compressFile)return
 
+
+
 const reader=new FileReader()
+
+
 
 reader.onload=e=>{
 
 const img=new Image()
 
+
+
 img.onload=()=>{
+
+const canvas=document.createElement("canvas")
+
+canvas.width=img.width
+
+canvas.height=img.height
+
+
+
+const ctx=canvas.getContext("2d")
+
+ctx.drawImage(img,0,0)
+
+
 
 let quality=0.9
 
-const canvas=document.createElement("canvas")
-canvas.width=img.width
-canvas.height=img.height
 
-const ctx=canvas.getContext("2d")
-ctx.drawImage(img,0,0)
 
 function attempt(){
 
 canvas.toBlob(blob=>{
 
-if(blob.size>targetByte.value&&quality>0.1){
+if(blob.size>targetByte.value && quality>0.1){
 
 quality-=0.05
+
 attempt()
 
 }else{
 
 const a=document.createElement("a")
+
 a.href=URL.createObjectURL(blob)
+
 a.download="compressed.jpg"
+
 a.click()
 
+
+
 toast("ダウンロード完了")
+
+
+
+targetByte.value=""
+
+document.getElementById("originalByte").textContent=""
 
 }
 
@@ -549,13 +778,19 @@ toast("ダウンロード完了")
 
 }
 
+
+
 attempt()
 
 }
 
+
+
 img.src=e.target.result
 
 }
+
+
 
 reader.readAsDataURL(compressFile)
 
