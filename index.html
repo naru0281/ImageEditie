@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ImageEditie</title>
+
+<style>
+
+:root{
+--bg:#2b2d31;
+--card:#313338;
+--text:#ffffff;
+--accent:#5865f2;
+--border:#444;
+}
+
+body.light{
+--bg:#f2f3f5;
+--card:#ffffff;
+--text:#000;
+--border:#ddd;
+}
+
+body{
+margin:0;
+font-family:sans-serif;
+background:var(--bg);
+color:var(--text);
+transition:0.3s;
+}
+
+header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:14px 24px;
+background:var(--card);
+border-bottom:1px solid var(--border);
+}
+
+.title{
+font-size:20px;
+font-weight:bold;
+}
+
+.mode-btn{
+cursor:pointer;
+width:36px;
+}
+
+main{
+padding:30px;
+max-width:900px;
+margin:auto;
+}
+
+.segment{
+width:320px;
+margin:0 auto 30px;
+background:var(--card);
+border-radius:12px;
+display:flex;
+position:relative;
+overflow:hidden;
+border:1px solid var(--border);
+}
+
+.segment button{
+flex:1;
+padding:10px;
+border:none;
+background:none;
+color:var(--text);
+cursor:pointer;
+z-index:2;
+}
+
+.segment-slider{
+position:absolute;
+width:50%;
+height:100%;
+background:var(--accent);
+transition:0.25s;
+border-radius:10px;
+}
+
+.panel{
+display:none;
+}
+
+.panel.active{
+display:block;
+}
+
+.drop{
+border:2px dashed var(--border);
+padding:40px;
+text-align:center;
+border-radius:10px;
+margin-bottom:20px;
+}
+
+.preview{
+position:relative;
+max-width:500px;
+margin:auto;
+}
+
+.preview img{
+max-width:100%;
+}
+
+.crop-box{
+position:absolute;
+border:2px solid red;
+cursor:move;
+}
+
+input{
+padding:8px;
+margin:6px;
+width:120px;
+}
+
+button.action{
+background:var(--accent);
+border:none;
+padding:10px 18px;
+color:white;
+border-radius:6px;
+cursor:pointer;
+margin-top:10px;
+}
+
+.error{
+color:red;
+margin-top:6px;
+}
+
+.toast{
+position:fixed;
+bottom:30px;
+left:50%;
+transform:translateX(-50%);
+background:#000;
+color:white;
+padding:10px 20px;
+border-radius:6px;
+opacity:0;
+transition:.3s;
+}
+
+.toast.show{
+opacity:1;
+}
+
+</style>
+</head>
+
+
+<body>
+
+<header>
+<div class="title">ImageEditie</div>
+
+<img class="mode-btn" id="modeToggle"
+src="/image/image_dark_button.png">
+</header>
+
+
+<main>
+
+<div class="segment">
+<div class="segment-slider" id="slider"></div>
+<button id="tab1">画像サイズを調整</button>
+<button id="tab2">データ容量を調整</button>
+</div>
+
+
+<!-- サイズ調整 -->
+
+<div class="panel active" id="resizePanel">
+
+<div class="drop" id="dropResize">
+画像をドロップ or クリック
+<input type="file" id="fileResize" hidden>
+</div>
+
+<div class="preview">
+<img id="previewImg">
+<div class="crop-box" id="cropBox"></div>
+</div>
+
+<div id="originalSize"></div>
+
+<div>
+<input id="newW" placeholder="width">
+×
+<input id="newH" placeholder="height">
+</div>
+
+<div class="error" id="resizeError"></div>
+
+<button class="action" id="downloadResize">
+ダウンロード
+</button>
+
+</div>
+
+
+
+<!-- 容量調整 -->
+
+<div class="panel" id="compressPanel">
+
+<div class="drop" id="dropCompress">
+画像をドロップ or クリック
+<input type="file" id="fileCompress" hidden>
+</div>
+
+<div id="originalByte"></div>
+
+<div>
+<input id="targetByte" placeholder="byte">
+<button id="kbBtn">KB</button>
+<button id="mbBtn">MB</button>
+</div>
+
+<div class="error" id="compressError"></div>
+
+<button class="action" id="downloadCompress">
+ダウンロード
+</button>
+
+</div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+
+const allowed = ["image/jpeg","image/png","image/webp","image/gif","image/bmp"]
+
+function toast(msg){
+const t=document.getElementById("toast")
+t.textContent=msg
+t.classList.add("show")
+setTimeout(()=>t.classList.remove("show"),2500)
+}
+
+
+
+const slider=document.getElementById("slider")
+
+document.getElementById("tab1").onclick=()=>{
+slider.style.left="0%"
+switchPanel("resizePanel")
+}
+
+document.getElementById("tab2").onclick=()=>{
+slider.style.left="50%"
+switchPanel("compressPanel")
+}
+
+function switchPanel(id){
+document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"))
+document.getElementById(id).classList.add("active")
+}
+
+
+
+const modeBtn=document.getElementById("modeToggle")
+
+modeBtn.onclick=()=>{
+document.body.classList.toggle("light")
+
+if(document.body.classList.contains("light")){
+modeBtn.src="/image/image_light_button.png"
+}else{
+modeBtn.src="/image/image_dark_button.png"
+}
+}
+
+
+
+function setupDrop(drop,input,callback){
+
+drop.onclick=()=>input.click()
+
+drop.ondragover=e=>{
+e.preventDefault()
+}
+
+drop.ondrop=e=>{
+e.preventDefault()
+const f=e.dataTransfer.files
+callback(f)
+}
+
+input.onchange=e=>{
+callback(e.target.files)
+}
+
+}
+
+
+
+let imgFile
+let img
+let cropBox=document.getElementById("cropBox")
+let preview=document.getElementById("previewImg")
+
+setupDrop(
+document.getElementById("dropResize"),
+document.getElementById("fileResize"),
+files=>{
+if(files.length!=1){
+toast("ファイルは1つのみ")
+return
+}
+
+const f=files[0]
+
+if(!allowed.includes(f.type)){
+toast("対応していない形式")
+return
+}
+
+imgFile=f
+
+const url=URL.createObjectURL(f)
+
+preview.onload=()=>{
+document.getElementById("originalSize").textContent=
+preview.naturalWidth+" px × "+preview.naturalHeight+" px"
+}
+
+preview.src=url
+
+}
+)
+
+
+
+const newW=document.getElementById("newW")
+const newH=document.getElementById("newH")
+
+function updateCrop(){
+
+if(!preview.src)return
+
+const w=parseInt(newW.value)
+const h=parseInt(newH.value)
+
+if(!w||!h)return
+
+if(w>preview.naturalWidth||h>preview.naturalHeight){
+
+document.getElementById("resizeError").textContent=
+"変更後サイズの方が大きくする必要があります"
+
+return
+}
+
+document.getElementById("resizeError").textContent=""
+
+const scale=preview.width/preview.naturalWidth
+
+cropBox.style.width=(w*scale)+"px"
+cropBox.style.height=(h*scale)+"px"
+
+cropBox.style.left=(preview.width/2-w*scale/2)+"px"
+cropBox.style.top=(preview.height/2-h*scale/2)+"px"
+
+}
+
+newW.onblur=updateCrop
+newH.onblur=updateCrop
+
+
+
+let drag=false,ox,oy
+
+cropBox.onmousedown=e=>{
+drag=true
+ox=e.offsetX
+oy=e.offsetY
+}
+
+document.onmouseup=()=>drag=false
+
+document.onmousemove=e=>{
+if(!drag)return
+
+const rect=preview.getBoundingClientRect()
+
+cropBox.style.left=(e.clientX-rect.left-ox)+"px"
+cropBox.style.top=(e.clientY-rect.top-oy)+"px"
+}
+
+
+
+document.getElementById("downloadResize").onclick=()=>{
+
+if(!imgFile)return
+
+const canvas=document.createElement("canvas")
+
+const w=parseInt(newW.value)
+const h=parseInt(newH.value)
+
+canvas.width=w
+canvas.height=h
+
+const ctx=canvas.getContext("2d")
+
+const scale=preview.width/preview.naturalWidth
+
+const sx=parseInt(cropBox.style.left)/scale
+const sy=parseInt(cropBox.style.top)/scale
+
+const image=new Image()
+
+image.onload=()=>{
+
+ctx.drawImage(image,sx,sy,w,h,0,0,w,h)
+
+canvas.toBlob(blob=>{
+
+const a=document.createElement("a")
+a.href=URL.createObjectURL(blob)
+a.download="image.png"
+a.click()
+
+toast("ダウンロード完了")
+
+preview.src=""
+cropBox.style.width="0"
+
+})
+
+}
+
+image.src=preview.src
+
+}
+
+
+
+let compressFile
+
+setupDrop(
+document.getElementById("dropCompress"),
+document.getElementById("fileCompress"),
+files=>{
+
+if(files.length!=1){
+toast("ファイルは1つのみ")
+return
+}
+
+const f=files[0]
+
+if(!allowed.includes(f.type)){
+toast("対応していない形式")
+return
+}
+
+compressFile=f
+
+document.getElementById("originalByte").textContent=
+f.size+" byte"
+
+}
+)
+
+
+
+document.getElementById("kbBtn").onclick=()=>{
+targetByte.value=parseInt(targetByte.value)*1024
+}
+
+document.getElementById("mbBtn").onclick=()=>{
+targetByte.value=parseInt(targetByte.value)*1024*1024
+}
+
+const targetByte=document.getElementById("targetByte")
+
+targetByte.onblur=()=>{
+
+if(!compressFile)return
+
+if(parseInt(targetByte.value)>compressFile.size){
+
+document.getElementById("compressError").textContent=
+"変更後サイズの方が大きくする必要があります"
+
+}else{
+document.getElementById("compressError").textContent=""
+}
+
+}
+
+
+
+document.getElementById("downloadCompress").onclick=()=>{
+
+if(!compressFile)return
+
+const reader=new FileReader()
+
+reader.onload=e=>{
+
+const img=new Image()
+
+img.onload=()=>{
+
+let quality=0.9
+
+const canvas=document.createElement("canvas")
+canvas.width=img.width
+canvas.height=img.height
+
+const ctx=canvas.getContext("2d")
+ctx.drawImage(img,0,0)
+
+function attempt(){
+
+canvas.toBlob(blob=>{
+
+if(blob.size>targetByte.value&&quality>0.1){
+
+quality-=0.05
+attempt()
+
+}else{
+
+const a=document.createElement("a")
+a.href=URL.createObjectURL(blob)
+a.download="compressed.jpg"
+a.click()
+
+toast("ダウンロード完了")
+
+}
+
+},"image/jpeg",quality)
+
+}
+
+attempt()
+
+}
+
+img.src=e.target.result
+
+}
+
+reader.readAsDataURL(compressFile)
+
+}
+
+</script>
+
+</body>
+</html>
